@@ -9,16 +9,22 @@ func main() {
 	const filepathRoot = "."
 	const port = "8080"
 
-	serveMux := http.NewServeMux()
-	fileServer := http.FileServer(http.Dir(filepathRoot))
-	serveMux.Handle("/", fileServer)
+	mux := http.NewServeMux()
+	mux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
+	mux.HandleFunc("/healthz", handlerReadiness)
 
 	// create server
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: serveMux,
+		Handler: mux,
 	}
 	// start the server
 	log.Printf("Server running on port :%s\n", port)
 	log.Fatal(server.ListenAndServe())
+}
+
+func handlerReadiness(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
