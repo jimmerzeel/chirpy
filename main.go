@@ -18,21 +18,24 @@ type apiConfig struct {
 }
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Printf("error loading .env file: %v", err)
-	}
-
-	dbURL := os.Getenv("DB_URL")
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Printf("error opening postgres database: %v", err)
-	}
-	dbQueries := database.New(db)
-
 	const filepathRoot = "."
 	const port = "8080"
-	apiCfg := apiConfig{fileserverHits: atomic.Int32{}, db: dbQueries}
+
+	godotenv.Load(".env")
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set")
+	}
+
+	dbConn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("error opening postgres database: %v", err)
+	}
+	dbQueries := database.New(dbConn)
+
+	apiCfg := apiConfig{
+		fileserverHits: atomic.Int32{},
+		db:             dbQueries}
 
 	mux := http.NewServeMux()
 	handler := http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))
