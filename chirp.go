@@ -36,31 +36,34 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
 		return
 	}
-	dbParams := database.CreateChirpParams(input)
-	dbChirp, err := cfg.db.CreateChirp(r.Context(), dbParams)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Cannot create chirp")
-		return
-	}
-	outputMsg, err := validateChirp(w, dbChirp.Body)
+
+	cleaned, err := validateChirp(input.Body)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	chirp := responseBody{
-		Chirp: Chirp{
-			ID:        dbChirp.ID,
-			CreatedAt: dbChirp.CreatedAt,
-			UpdatedAt: dbChirp.UpdatedAt,
-			Body:      outputMsg,
-			UserID:    dbChirp.UserID,
-		},
+	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
+		Body:   cleaned,
+		UserID: input.UserID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Cannot create chirp")
+		return
 	}
-	respondWithJSON(w, http.StatusCreated, chirp)
+
+	respondWithJSON(w, http.StatusCreated, responseBody{
+		Chirp: Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		},
+	})
 }
 
-func validateChirp(w http.ResponseWriter, body string) (string, error) {
+func validateChirp(body string) (string, error) {
 	const maxChirpLength = 140
 	if len(body) > maxChirpLength {
 		return "", fmt.Errorf("Chirp is too long")
@@ -74,34 +77,3 @@ func validateChirp(w http.ResponseWriter, body string) (string, error) {
 	}
 	return strings.Join(inputMsg, " "), nil
 }
-
-// func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-// 	type requestBody struct {
-// 		Body string `json:"body"`
-// 	}
-// 	type responseBody struct {
-// 		CleanedBody string `json:"cleaned_body"`
-// 	}
-
-// 	decoder := json.NewDecoder(r.Body)
-// 	chirp := requestBody{}
-// 	err := decoder.Decode(&chirp)
-// 	if err != nil {
-// 		respondWithError(w, http.StatusInternalServerError, "Error decoding the incoming Chirp")
-// 		return
-// 	}
-// 	const maxChirpLength = 140
-// 	if len(chirp.Body) > maxChirpLength {
-// 		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
-// 		return
-// 	}
-// 	profanity := []string{"kerfuffle", "sharbert", "fornax"}
-// 	inputMsg := strings.Split(chirp.Body, " ")
-// 	for i, word := range inputMsg {
-// 		if slices.Contains(profanity, strings.ToLower(word)) {
-// 			inputMsg[i] = "****"
-// 		}
-// 	}
-// 	outputMsg := strings.Join(inputMsg, " ")
-// 	respondWithJSON(w, http.StatusOK, responseBody{CleanedBody: outputMsg})
-// }
