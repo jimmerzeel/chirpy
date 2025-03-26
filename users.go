@@ -57,3 +57,42 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	}
 	respondWithJSON(w, http.StatusCreated, user)
 }
+
+func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	type responseBody struct {
+		User
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	input := requestBody{}
+	err := decoder.Decode(&input)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	dbUser, err := cfg.db.GetUserByEmail(r.Context(), input.Email)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	err = auth.CheckPasswordHash(dbUser.HashedPassword, input.Password)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+	user := responseBody{
+		User: User{
+			ID:        dbUser.ID,
+			CreatedAt: dbUser.CreatedAt,
+			UpdatedAt: dbUser.UpdatedAt,
+			Email:     dbUser.Email,
+		},
+	}
+	respondWithJSON(w, http.StatusOK, user)
+}
