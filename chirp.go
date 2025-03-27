@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jimmerzeel/chirpy/internal/auth"
 	"github.com/jimmerzeel/chirpy/internal/database"
 )
 
@@ -68,9 +69,20 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		Chirp
 	}
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Cannot find JWT")
+		return
+	}
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Cannot validate JWT")
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	input := requestBody{}
-	err := decoder.Decode(&input)
+	err = decoder.Decode(&input)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
 		return
@@ -84,7 +96,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   cleaned,
-		UserID: input.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Cannot create chirp")
