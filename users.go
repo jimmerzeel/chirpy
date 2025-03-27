@@ -60,11 +60,13 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 	type responseBody struct {
 		User
+		Token string
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -86,6 +88,18 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
 		return
 	}
+
+	expirationTime := time.Hour
+	if input.ExpiresInSeconds > 0 && input.ExpiresInSeconds < 3600 {
+		expirationTime = time.Duration(input.ExpiresInSeconds) * time.Second
+	}
+
+	token, err := auth.MakeJWT(dbUser.ID, cfg.jwtSecret, expirationTime)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error creating JWT")
+		return
+	}
+
 	user := responseBody{
 		User: User{
 			ID:        dbUser.ID,
@@ -93,6 +107,7 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: dbUser.UpdatedAt,
 			Email:     dbUser.Email,
 		},
+		Token: token,
 	}
 	respondWithJSON(w, http.StatusOK, user)
 }
