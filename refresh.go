@@ -7,7 +7,7 @@ import (
 	"github.com/jimmerzeel/chirpy/internal/auth"
 )
 
-func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerRefreshToken(w http.ResponseWriter, r *http.Request) {
 	type responseBody struct {
 		Token string `json:"token"`
 	}
