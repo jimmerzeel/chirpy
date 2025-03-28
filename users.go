@@ -124,3 +124,55 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 	respondWithJSON(w, http.StatusOK, user)
 }
+
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	type responseBody struct {
+		User
+	}
+
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Cannot find access token")
+		return
+	}
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid access token")
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	input := requestBody{}
+	err = decoder.Decode(&input)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(input.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error handling user input")
+		return
+	}
+
+	user, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userID,
+		Email:          input.Email,
+		HashedPassword: hashedPassword,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Cannot update user")
+		return
+	}
+	respondWithJSON(w, http.StatusOK, responseBody{
+		User: User{
+			ID:        user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Email:     user.Email,
+		}})
+}
