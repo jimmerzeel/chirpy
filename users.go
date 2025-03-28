@@ -100,6 +100,17 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Error creating refresh token")
 		return
 	}
+	refreshExpiration := time.Now().AddDate(0, 0, 60)
+
+	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    dbUser.ID,
+		ExpiresAt: refreshExpiration,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error storing refresh token in the database")
+		return
+	}
 
 	user := responseBody{
 		User: User{
