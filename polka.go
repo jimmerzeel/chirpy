@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jimmerzeel/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerUpgradeUser(w http.ResponseWriter, r *http.Request) {
@@ -16,10 +17,19 @@ func (cfg *apiConfig) handlerUpgradeUser(w http.ResponseWriter, r *http.Request)
 			UserID uuid.UUID `json:"user_id"`
 		} `json:"data"`
 	}
+	polkaKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Cannot find Polka API key")
+		return
+	}
+	if cfg.polkaKey != polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Polka API key does not match")
+		return
+	}
 
 	decoder := json.NewDecoder(r.Body)
 	input := requestBody{}
-	err := decoder.Decode(&input)
+	err = decoder.Decode(&input)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
 		return
