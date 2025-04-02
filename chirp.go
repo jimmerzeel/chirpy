@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,6 +38,11 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	sorting := "asc"
+	sortParam := r.URL.Query().Get("sort")
+	if sortParam == "desc" {
+		sorting = "desc"
+	}
 
 	chirps := []Chirp{}
 	for _, ch := range dbChirps {
@@ -51,6 +57,12 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			UserID:    ch.UserID,
 		})
 	}
+	sort.Slice(chirps, func(i, j int) bool {
+		if sorting == "desc" {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		}
+		return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+	})
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
